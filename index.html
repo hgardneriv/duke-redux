@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DUKE REDUX — Come Get Some</title>
+<meta name="viewport"
+  content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<style>
+  html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden;
+    font-family:"Courier New",monospace;
+    touch-action:none;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;
+    box-shadow:0 0 80px rgba(255,60,0,.15);touch-action:none;}
+  #crt{position:fixed;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);
+    mix-blend-mode:multiply;}
+
+  /* ---- on-screen controls (created by game.js only on touch devices) ---- */
+  #touch{position:fixed;inset:0;z-index:10;pointer-events:none;}
+  #stick{position:absolute;left:max(5vmin,env(safe-area-inset-left));
+    bottom:max(6vmin,env(safe-area-inset-bottom));
+    width:36vmin;height:36vmin;max-width:210px;max-height:210px;
+    border-radius:50%;pointer-events:auto;touch-action:none;
+    border:2px solid rgba(255,120,0,.35);
+    background:radial-gradient(circle,rgba(255,90,0,.10),rgba(255,90,0,.03));
+    box-shadow:0 0 22px rgba(255,60,0,.22) inset;}
+  #knob{position:absolute;left:50%;top:50%;
+    width:15vmin;height:15vmin;max-width:90px;max-height:90px;border-radius:50%;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle,rgba(255,150,40,.92),rgba(200,60,0,.72));
+    border:2px solid rgba(255,200,120,.75);box-shadow:0 0 18px rgba(255,90,0,.6);}
+  #fire{position:absolute;right:max(7vmin,env(safe-area-inset-right));
+    bottom:max(9vmin,env(safe-area-inset-bottom));
+    width:25vmin;height:25vmin;max-width:150px;max-height:150px;border-radius:50%;
+    pointer-events:auto;touch-action:none;display:flex;align-items:center;
+    justify-content:center;color:#ffd9b0;font-weight:bold;font-size:4.6vmin;
+    letter-spacing:1px;font-family:"Courier New",monospace;
+    text-shadow:0 0 8px rgba(255,80,0,.9);
+    border:3px solid rgba(255,120,0,.7);
+    background:radial-gradient(circle,rgba(255,60,0,.5),rgba(150,20,0,.55));
+    box-shadow:0 0 26px rgba(255,40,0,.5);}
+  #fire:active{transform:scale(.94);
+    background:radial-gradient(circle,rgba(255,130,30,.75),rgba(200,40,0,.7));}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="cv" width="640" height="400"></canvas></div>
+<div id="crt"></div>
+<script src="game.js"></script>
+</body>
+</html>
