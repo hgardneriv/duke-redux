@@ -14,6 +14,12 @@ generated procedurally at startup.
 Runs in any modern browser on **desktop _and_ mobile** — phones and tablets get an
 on-screen joystick + fire button automatically. Best with the **sound on**. 🔊
 
+<p align="center">
+  <a href="https://duke-nuken-redux.vercel.app/" target="_blank" rel="noopener noreferrer">
+    <img src="screenshot.png" alt="Duke Redux gameplay — Level 1: Street Justice" width="640">
+  </a>
+</p>
+
 ## Run it locally
 
 Open `index.html` in any modern browser. That's it. (Or `python3 -m http.server`
