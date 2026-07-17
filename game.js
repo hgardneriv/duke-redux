@@ -1566,10 +1566,18 @@ function setMsg(m) { msg = m; msgT = 2.2; }
 function setQuip(q) { quip = q; quipT = 2.4; say(q); }
 
 function useAction() {
-  // March along the view ray and act on the first interactable cell (door / exit).
-  // A longer reach than a step-in-front probe makes the FIRE button forgiving on
-  // touch (no key auto-repeat there), and stopping at the first solid wall keeps
-  // us from reaching through walls into the room beyond.
+  // Standing right next to the EXIT block and using/firing finishes the level,
+  // no matter which way you're facing — walk up to it and hit FIRE and you're
+  // done, no need to line the shot up perfectly.
+  const cx = Math.floor(player.x), cy = Math.floor(player.y);
+  for (let oy = -1; oy <= 1; oy++)
+    for (let ox = -1; ox <= 1; ox++)
+      if (cellAt(cx + ox, cy + oy) === 'X') { levelComplete(); return; }
+
+  // Otherwise march along the view ray and act on the first interactable cell
+  // (door / farther-off exit). A longer reach than a step-in-front probe makes
+  // the FIRE button forgiving on touch (no key auto-repeat there), and stopping
+  // at the first solid wall keeps us from reaching through walls beyond.
   const dx = dirX(), dy = dirY();
   const REACH = 2.5, STEP = 0.25;
   let last = '';
@@ -2410,40 +2418,47 @@ function renderWin() {
 
 // ---------------------------------------------------------------- main loop
 let lastT = performance.now();
+let frameErrLogged = false;
 function frame(now) {
-  let dt = (now - lastT) / 1000;
-  lastT = now;
-  if (dt > 0.05) dt = 0.05;
-  texClock += dt;
+  // Everything is wrapped so a single unexpected error can never permanently
+  // freeze the game — we log it once and keep the animation loop alive.
+  try {
+    let dt = (now - lastT) / 1000;
+    lastT = now;
+    if (dt > 0.05) dt = 0.05;
+    texClock += dt;
 
-  if (state === 'play' && !paused) {
-    levelTime += dt;
-    updatePlayer(dt);
-    updateDoors(dt);
-    updateEnemies(dt);
-    updateProjectiles(dt);
-    updateParticles(dt);
-    if (msgT > 0) msgT -= dt;
-    if (quipT > 0) quipT -= dt;
-    if (dmgFlash > 0) dmgFlash -= dt * 1.6;
-    if (pickFlash > 0) pickFlash -= dt;
-    if (shake > 0) shake -= dt * 0.9;
-    if (introT > 0) introT -= dt;
-    if (faceT > 0) faceT -= dt;
-  }
-  if (state === 'dead') deadT += dt;
+    if (state === 'play' && !paused) {
+      levelTime += dt;
+      updatePlayer(dt);
+      updateDoors(dt);
+      updateEnemies(dt);
+      updateProjectiles(dt);
+      updateParticles(dt);
+      if (msgT > 0) msgT -= dt;
+      if (quipT > 0) quipT -= dt;
+      if (dmgFlash > 0) dmgFlash -= dt * 1.6;
+      if (pickFlash > 0) pickFlash -= dt;
+      if (shake > 0) shake -= dt * 0.9;
+      if (introT > 0) introT -= dt;
+      if (faceT > 0) faceT -= dt;
+    }
+    if (state === 'dead') deadT += dt;
 
-  if (isTouch && touchUI) touchUI.style.display = (state === 'play' && !paused) ? '' : 'none';
+    if (isTouch && touchUI) touchUI.style.display = (state === 'play' && !paused) ? '' : 'none';
 
-  if (state === 'title') renderTitle();
-  else if (state === 'dead') renderDead();
-  else if (state === 'gameover') renderGameOver();
-  else if (state === 'score') renderScore();
-  else if (state === 'win') renderWin();
-  else {
-    render3D();
-    renderWeapon();
-    renderHUD();
+    if (state === 'title') renderTitle();
+    else if (state === 'dead') renderDead();
+    else if (state === 'gameover') renderGameOver();
+    else if (state === 'score') renderScore();
+    else if (state === 'win') renderWin();
+    else {
+      render3D();
+      renderWeapon();
+      renderHUD();
+    }
+  } catch (err) {
+    if (!frameErrLogged) { frameErrLogged = true; console.error('frame error:', err); }
   }
   requestAnimationFrame(frame);
 }
