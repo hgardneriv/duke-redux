@@ -1607,10 +1607,14 @@ function useAction() {
     if (WALL_CHARS.includes(ch)) return;  // solid wall — don't act through it
   }
 }
+// iOS Safari has no Pointer Lock API, so document.exitPointerLock is undefined
+// there — calling it unguarded throws and (pre try/catch) froze the game right
+// as a level ended or the player died. Guard every call.
+function releasePointer() { if (document.exitPointerLock) document.exitPointerLock(); }
 function levelComplete() {
   if (state !== 'play') return;   // ignore repeat triggers (e.g. multiple shotgun pellets on the exit)
   SFX.exit();
-  document.exitPointerLock();
+  releasePointer();
   totalScore += kills * 100;
   state = 'score';
 }
@@ -1710,7 +1714,7 @@ function damagePlayer(d) {
   if (player.hp <= 0) {
     player.hp = 0;
     SFX.die();
-    document.exitPointerLock();
+    releasePointer();
     deadT = 0;
     lives--;
     state = lives > 0 ? 'dead' : 'gameover';
