@@ -1600,6 +1600,7 @@ function useAction() {
   }
 }
 function levelComplete() {
+  if (state !== 'play') return;   // ignore repeat triggers (e.g. multiple shotgun pellets on the exit)
   SFX.exit();
   document.exitPointerLock();
   totalScore += kills * 100;
@@ -1646,6 +1647,11 @@ function hitscan(px, py, angle, dmg) {
     spawnParticles(best.x - dx * 0.2, best.y - dy * 0.2, best.type === 'drone' ? P_GREEN : P_BLOOD, 5, 0.45);
     spawnParticles(best.x - dx * 0.2, best.y - dy * 0.2, P_BLOOD2, 3, 0.45);
   } else if (wallD < 39) {
+    // shooting the EXIT block (with clear line of sight — no enemy hit first)
+    // ends the level, so FIRE both fights and exits with no separate "use".
+    const ex = Math.floor(px + dx * (wallD + 0.05));
+    const ey = Math.floor(py + dy * (wallD + 0.05));
+    if (cellAt(ex, ey) === 'X') { levelComplete(); return; }
     spawnParticles(px + dx * (wallD - 0.08), py + dy * (wallD - 0.08), P_SPARK, 3, 0.5, true);
   }
 }
@@ -2508,10 +2514,15 @@ if (isTouch) {
   window.addEventListener('blur', resetInput);
   document.addEventListener('visibilitychange', () => { if (document.hidden) resetInput(); });
 
-  // tapping the view also starts / advances past menus
-  cv.addEventListener('touchstart', e => {
+  // Tapping ANYWHERE starts / advances past menus (title, dead, game-over, score,
+  // win). The touch controls are hidden outside 'play', and the 640x400 canvas is
+  // letterboxed on tall phones — so a canvas-only handler misses taps on the black
+  // bars. A window-level handler catches every tap and is the sole advance path on
+  // mobile (e.g. "TAP TO TRY AGAIN" after death).
+  window.addEventListener('touchstart', e => {
+    if (state === 'play') return;
     e.preventDefault(); resumeAudio();
-    if (state !== 'play') advanceState();
+    advanceState();
   }, { passive: false });
 }
 
