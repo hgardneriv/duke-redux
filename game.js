@@ -1488,6 +1488,7 @@ function restartLevel() {
 // ---------------------------------------------------------------- input
 const keys = {};
 let firing = false;
+let touchUseT = 0;   // throttle for auto-"use" while the touch FIRE button is held
 const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 let touchUI = null;
 let tjX = 0, tjY = 0, tjOn = false;   // analog joystick: turn (x), forward (y)
@@ -1565,9 +1566,19 @@ function setMsg(m) { msg = m; msgT = 2.2; }
 function setQuip(q) { quip = q; quipT = 2.4; say(q); }
 
 function useAction() {
-  for (const probe of [0.8, 1.4]) {
-    const tx = Math.floor(player.x + dirX() * probe);
-    const ty = Math.floor(player.y + dirY() * probe);
+  // March along the view ray and act on the first interactable cell (door / exit).
+  // A longer reach than a step-in-front probe makes the FIRE button forgiving on
+  // touch (no key auto-repeat there), and stopping at the first solid wall keeps
+  // us from reaching through walls into the room beyond.
+  const dx = dirX(), dy = dirY();
+  const REACH = 2.5, STEP = 0.25;
+  let last = '';
+  for (let march = 0.4; march <= REACH; march += STEP) {
+    const tx = Math.floor(player.x + dx * march);
+    const ty = Math.floor(player.y + dy * march);
+    const key = tx + ',' + ty;
+    if (key === last) continue;      // same cell as last step — skip
+    last = key;
     const ch = cellAt(tx, ty);
     if (ch === 'X') { levelComplete(); return; }
     if (DOOR_CHARS.includes(ch)) {
@@ -1585,6 +1596,7 @@ function useAction() {
       if (d.state === 'closed' || d.state === 'closing') { d.state = 'opening'; SFX.door(); }
       return;
     }
+    if (WALL_CHARS.includes(ch)) return;  // solid wall — don't act through it
   }
 }
 function levelComplete() {
@@ -1734,7 +1746,16 @@ function updatePlayer(dt) {
   player.sway *= Math.pow(0.0001, dt); // decay turn sway
   if (player.cool > 0) player.cool -= dt;
   if (player.muzzle > 0) player.muzzle -= dt;
-  if (firing) fireWeapon();
+  if (firing) {
+    fireWeapon();
+    // Touch has no key auto-repeat, so holding FIRE re-attempts the "use" action
+    // on a throttle — walk up to a door/exit with FIRE held and it opens in range,
+    // matching how holding E works on desktop.
+    if (isTouch) {
+      touchUseT -= dt;
+      if (touchUseT <= 0) { useAction(); touchUseT = 0.3; }
+    }
+  }
   for (const it of items) {
     if (it.taken) continue;
     if (dist2(it.x, it.y, player.x, player.y) < 0.62) {
@@ -2470,8 +2491,9 @@ if (isTouch) {
     e.preventDefault(); resumeAudio();
     fId = e.changedTouches[0].identifier;
     if (state !== 'play') { advanceState(); return; }
-    useAction();    // doors, keycard doors, exit switch
-    firing = true;  // and fire the current weapon
+    useAction();       // doors, keycard doors, exit switch
+    touchUseT = 0.3;   // next auto-use fires after the throttle window
+    firing = true;     // and fire the current weapon
   }, { passive: false });
   const fLift = e => { for (const t of e.changedTouches) if (t.identifier === fId) { fId = null; firing = false; } };
   fire.addEventListener('touchend', fLift);
