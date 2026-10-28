@@ -1219,18 +1219,18 @@ const LEVELS = [
       '2           +   E   e    2',
       '2   4   3         3      2',
       '2 m        o 4         a 2',
-      '2   E                    2',
+      '2   E   a                2',
       '2                     m  2',
       '2     2       e     3    2',
-      '2                  o     2',
+      '2   a           h  o     2',
       '2  e             E    h  2',
       '2          e             2',
       '2 m  3          4        2',
       '2        o  O            2',
       '2 h   e              22222',
       '2         2   s      R  X2',
-      '2  r                 22222',
-      '2                        2',
+      '2  r        h        22222',
+      '2                    h   2',
       '22222222222222222222222222',
     ],
   },
@@ -1244,18 +1244,18 @@ const LEVELS = [
       '5P         h 5        o  5',
       '5      e  o  5  e  E   h 5',
       '5   3        5   6       5',
-      '5            5           5',
+      '5       a    5           5',
       '5   E    6   5       3   5',
-      '5  e         5 e         5',
+      '5  e         5 e  h      5',
       '5            5           5',
       '5     +   e  5   6     e 5',
       '5 m 6        B E    O   X5',
-      '5            5           5',
-      '5     e      5       6   5',
+      '5            5       a   5',
+      '5     e  h   5       6   5',
       '5        3   5  e   o    5',
       '5            5 m         5',
       '5            5    3   h  5',
-      '5     6      5           5',
+      '5   h 6      5           5',
       '5 b    o  s  5 o   E 6   5',
       '5            5  a     s  5',
       '55555555555555555555555555',
@@ -1272,17 +1272,17 @@ const LEVELS = [
       '6 h   e  6 e  E  6     a 6',
       '6        6   4   6 e     6',
       '6   4  o 6       6   4   6',
-      '6     E  6  o    6       6',
-      '6        6     m 6 o O   6',
+      '6     E  6  o a  6       6',
+      '6    a   6     m 6 o O   6',
       '6        6       6       6',
-      '6   o    6h  3   6       6',
+      '6   o    6h  3   6   h   6',
       '6        6       B E 3mo 6',
       '6   3    R       6      X6',
-      '6      m 6     e 6       6',
+      '6      m 6     e 6a      6',
       '6        6h      6 s O   6',
       '6  e     6  4    6  4  E 6',
       '6        6 o     6       6',
-      '6    4   6       6       6',
+      '6    4 h 6    h  6       6',
       '6        6 e 3   6   3 h 6',
       '6     e  6       6 e     6',
       '6 r+     6 s    b6 h     6',
@@ -1303,6 +1303,11 @@ const ETYPES = {
   drone: { hp: 22, speed: 2.4, dmg: [6, 12], rate: 2.0, range: 12, hitR: 0.32, scale: 0.46, lift: 0.32, proj: 'bolt', painCh: 0.5, frames: 'drone', name: 'DRONE' },
   boss:  { hp: 450, speed: 0.95, dmg: [9, 17], rate: 1.9, range: 16, hitR: 0.62, scale: 1.0, lift: 0, proj: 'spread', painCh: 0.08, frames: 'boss', name: 'OVERLORD' },
 };
+// Aim error (radians) for the Overlord volley, indexed by campaign level.
+// Levels 1–3 stay dead-on, including the Mothership fight. 4 is loose enough
+// to sidestep, 5 tightens, 6 is a small wobble off center. The three-bolt
+// spread is unchanged, and a bolt still hurts only if it reaches the player.
+const BOSS_AIM_ERR = [0, 0, 0, 0.55, 0.34, 0.12];
 const ECHARS = { e: 'grunt', E: 'heavy', o: 'drone', O: 'boss' };
 
 const ITYPES = {
@@ -1539,12 +1544,41 @@ function resetCampaign() {
   player.has = { pistol: true, shotgun: false, chain: false };
   player.ammo = { bullets: 48, shells: 0 };
 }
+// Local playtest skip. Public hosts ignore it, and a normal launch (no query)
+// still starts on level 1.
+//   python3 -m http.server 8000
+//   http://127.0.0.1:8000/?level=4
+function devLevelIndex() {
+  const host = location.hostname;
+  const local = location.protocol === 'file:' ||
+    host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '';
+  if (!local) return -1;
+  const raw = new URLSearchParams(location.search).get('level');
+  if (raw == null || raw === '') return -1;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > LEVELS.length) return -1;
+  return n - 1;
+}
+function applyDevLoadout(idx) {
+  // Shotgun is found on level 1, the ripper on level 2. Keys are not granted.
+  if (idx >= 1) {
+    player.has.shotgun = true;
+    player.weapon = 'shotgun';
+    player.ammo.shells = 12;
+  }
+  if (idx >= 2) {
+    player.has.chain = true;
+    player.ammo.bullets = 60;
+  }
+}
 function advanceState() {
   if (state === 'title') {
     resetCampaign();
     if (!isTouch) cv.requestPointerLock();
     say('come get some');
-    startLevel(0);
+    const dev = devLevelIndex();
+    if (dev >= 0) applyDevLoadout(dev);
+    startLevel(dev >= 0 ? dev : 0);
   } else if (state === 'dead') {
     if (!isTouch) cv.requestPointerLock();
     restartLevel();
@@ -1866,7 +1900,11 @@ function enemyAttack(e) {
   const d = dist2(e.x, e.y, player.x, player.y);
   if (e.t.proj) {
     SFX.plasma();
-    const base = Math.atan2(player.y - e.y, player.x - e.x);
+    let base = Math.atan2(player.y - e.y, player.x - e.x);
+    if (e.type === 'boss') {
+      const aimErr = BOSS_AIM_ERR[curLevel] || 0;
+      if (aimErr) base += rand(-aimErr, aimErr);
+    }
     const angles = e.t.proj === 'spread' ? [base - 0.22, base, base + 0.22] : [base + rand(-0.06, 0.06)];
     for (const a of angles) {
       projectiles.push({
@@ -1895,6 +1933,7 @@ function updateProjectiles(dt) {
       projectiles.splice(i, 1);
       continue;
     }
+    // Direct hit only. A bolt that misses the player deals nothing.
     if (dist2(p.x, p.y, player.x, player.y) < 0.42) {
       damagePlayer(p.dmg);
       projectiles.splice(i, 1);
@@ -2543,6 +2582,16 @@ if (isTouch) {
     e.preventDefault(); resumeAudio();
     advanceState();
   }, { passive: false });
+}
+
+// Already in the level when opened with ?level= on localhost. Click locks the
+// mouse and resumes; without this the fight would run before anyone is looking.
+const bootLevel = devLevelIndex();
+if (bootLevel >= 0) {
+  resetCampaign();
+  applyDevLoadout(bootLevel);
+  startLevel(bootLevel);
+  if (!isTouch) paused = true;
 }
 
 requestAnimationFrame(frame);
