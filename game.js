@@ -1544,15 +1544,17 @@ function resetCampaign() {
   player.has = { pistol: true, shotgun: false, chain: false };
   player.ammo = { bullets: 48, shells: 0 };
 }
-// Local playtest skip. Public hosts ignore it, and a normal launch (no query)
-// still starts on level 1.
+// Playtest skip. Honored on localhost and on the live site. Any other host
+// ignores it, and a normal launch (no query) still starts on level 1.
 //   python3 -m http.server 8000
 //   http://127.0.0.1:8000/?level=4
+//   https://duke-nuken-redux.vercel.app/?level=4
 function devLevelIndex() {
   const host = location.hostname;
-  const local = location.protocol === 'file:' ||
-    host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '';
-  if (!local) return -1;
+  const allowed = location.protocol === 'file:' ||
+    host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '' ||
+    host === 'duke-nuken-redux.vercel.app';
+  if (!allowed) return -1;
   const raw = new URLSearchParams(location.search).get('level');
   if (raw == null || raw === '') return -1;
   const n = Number(raw);
@@ -2584,8 +2586,9 @@ if (isTouch) {
   }, { passive: false });
 }
 
-// Already in the level when opened with ?level= on localhost. Click locks the
-// mouse and resumes; without this the fight would run before anyone is looking.
+// Already in the level when opened with ?level= on localhost or the live site.
+// Click locks the mouse and resumes; without this the fight would run before
+// anyone is looking. Touch devices start unpaused (no pointer lock there).
 const bootLevel = devLevelIndex();
 if (bootLevel >= 0) {
   resetCampaign();
